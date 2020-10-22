@@ -25,7 +25,7 @@ public final class RestApiClient {
 
     private static final Logger LOG = Logger.getLogger(RestApiClient.class.getName());
 
-    public static List<RemoteItem> getRemoteItems(RemoteFolder parent, String url, CredentialsUtils.NullSafeCredentials credentials, boolean recursiveSearch) {
+    public static List<RemoteItem> getRemoteItems(RemoteFolder parent, String url, CredentialsUtils.NullSafeCredentials credentials, boolean validateCertificates, boolean recursiveSearch) {
         List<RemoteItem> items = new ArrayList<>();
         try {
             if (StringUtils.isNotEmpty(url)) {
@@ -35,7 +35,7 @@ public final class RestApiClient {
                 factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
                 factory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
 
-                HttpResponse response = URLUtils.getUrl(URLUtils.safeURL(url, Constants.XML_API_QUERY), credentials.username, credentials.password);
+                HttpResponse response = URLUtils.getUrl(URLUtils.safeURL(url, Constants.XML_API_QUERY), credentials.username, credentials.password, validateCertificates);
                 InputStream content = response.getEntity().getContent();
                 int responseStatusCode = response.getStatusLine().getStatusCode();
                 if (responseStatusCode >= 400) {
@@ -64,7 +64,7 @@ public final class RestApiClient {
                         }
 
                         if(folder && recursiveSearch) {
-                            items.addAll(getRemoteItems((RemoteFolder) item, jobUrl, credentials, true));
+                            items.addAll(getRemoteItems((RemoteFolder) item, jobUrl, credentials, validateCertificates, true));
                         }
                     }
                 }

@@ -36,21 +36,26 @@ import org.apache.http.client.CredentialsProvider;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.protocol.HttpClientContext;
+import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
+import org.apache.http.conn.ssl.TrustSelfSignedStrategy;
 import org.apache.http.impl.auth.BasicScheme;
 import org.apache.http.impl.client.BasicAuthCache;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.client.HttpClients;
+import org.apache.http.ssl.SSLContextBuilder;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
+import java.util.logging.Logger;
 
 /**
  * @author <a href="mailto:jieryn@gmail.com">Jesse Farinacci</a>
  * @since 1.0
  */
 public final class URLUtils {
+    private static final Logger LOG = Logger.getLogger(URLUtils.class.getName());
 
   public static void notNull(final Object object) {
     if (object == null) {
@@ -66,11 +71,23 @@ public final class URLUtils {
      * @return The HttpResponse received.
      * @throws IOException If there was an issue in the communication with the server
      */
-    public static HttpResponse getUrl(String url, String username, String password) throws IOException {
+    public static HttpResponse getUrl(String url, String username, String password, boolean verifyCertificates) throws IOException {
         notNull(url);
         notNull(username);
         notNull(password);
         HttpClientBuilder builder = HttpClients.custom();
+
+        if (!verifyCertificates) {
+            try {
+                SSLContextBuilder sslBuilder = new SSLContextBuilder();
+                sslBuilder.loadTrustMaterial(null, new TrustSelfSignedStrategy());
+                SSLConnectionSocketFactory sslsf = new SSLConnectionSocketFactory(sslBuilder.build());
+                builder.setSSLSocketFactory(sslsf);
+            } catch (Exception e) {
+                LOG.warning("Could not set up SSL context to accept self-signed certificates: " + e.getMessage());
+            }
+        }
+
         HttpClientContext localContext = HttpClientContext.create();
 
         URL _url = new URL(url);
@@ -95,9 +112,9 @@ public final class URLUtils {
         }
         return builder.build().execute(target, new HttpGet(url), localContext);
     }
-    
-    public static InputStream fetchUrl(String url, String username, String password) throws IOException {
-        HttpResponse response = getUrl(url, username, password);
+
+    public static InputStream fetchUrl(String url, String username, String password, boolean verifyCertificates) throws IOException {
+        HttpResponse response = getUrl(url, username, password, verifyCertificates);
         return response.getEntity().getContent();
     }
 

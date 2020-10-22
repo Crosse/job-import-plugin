@@ -116,7 +116,7 @@ public final class JobImportAction implements RootAction, Describable<JobImportA
 
     final String site = (String)request.getParameter("remoteJenkins");
 
-    JenkinsSite remoteJenkins = new JenkinsSite("", "");
+    JenkinsSite remoteJenkins = new JenkinsSite("", "", true);
     for (JenkinsSite js : JobImportGlobalConfig.get().getSites()) {
       if ((js.getName() + "-" + js.getUrl() + "-" + js.getDefaultCredentialsId()).equals(site)) {
         remoteJenkins = js;
@@ -125,17 +125,18 @@ public final class JobImportAction implements RootAction, Describable<JobImportA
     }
 
     final String credentialId = remoteJenkins.getDefaultCredentialsId();
+    final boolean validateCertificates = remoteJenkins.getValidateCertificates();
 
     final SortedSet<RemoteItem> remoteJobs = new TreeSet<RemoteItem>();
     final String remoteFolder = request.getParameter("remoteFolder");
     final String remoteUrl = URLUtils.safeURL(remoteJenkins.getUrl(), remoteFolder);
     final String recursiveSearch = request.getParameter(Constants.RECURSIVE_PARAM);
-    doQueryInternal(null, remoteUrl, CredentialsUtils.getCredentials(credentialId), recursiveSearch, remoteJobs);
+    doQueryInternal(null, remoteUrl, CredentialsUtils.getCredentials(credentialId), recursiveSearch, validateCertificates, remoteJobs);
 
     if (remoteJobsAvailable != null && remoteJobsAvailable.equalsIgnoreCase("true")) {
       if (request.hasParameter(Constants.JOB_URL_PARAM)) {
         for (final String jobUrl : Arrays.asList(request.getParameterValues(Constants.JOB_URL_PARAM))) {
-          doImportInternal(jobUrl, localFolder, credentialId, shouldInstallPlugins(request.getParameter("plugins")), shouldUpdate(request.getParameter("update")), remoteJobs, remoteJobsImportStatus);
+          doImportInternal(jobUrl, validateCertificates, localFolder, credentialId, shouldInstallPlugins(request.getParameter("plugins")), shouldUpdate(request.getParameter("update")), remoteJobs, remoteJobsImportStatus);
         }
       }
     }
@@ -159,7 +160,7 @@ public final class JobImportAction implements RootAction, Describable<JobImportA
 
     final String site = request.getParameter("_.jenkinsSites");
 
-    JenkinsSite remoteJenkins = new JenkinsSite("", "");
+    JenkinsSite remoteJenkins = new JenkinsSite("", "", true);
     for (JenkinsSite js : JobImportGlobalConfig.get().getSites()) {
       if ((js.getName() + "-" + js.getUrl() + "-" + js.getDefaultCredentialsId()).equals(site)) {
         remoteJenkins = js;
@@ -168,10 +169,11 @@ public final class JobImportAction implements RootAction, Describable<JobImportA
     }
 
     final String credentialId = remoteJenkins.getDefaultCredentialsId();
+    final boolean validateCertificates = remoteJenkins.getValidateCertificates();
     final String remoteUrl = URLUtils.safeURL(remoteJenkins.getUrl(), remoteFolder);
     final String recursiveSearch = request.getParameter(Constants.RECURSIVE_PARAM);
 
-    doQueryInternal(null, remoteUrl, CredentialsUtils.getCredentials(credentialId), recursiveSearch, remoteJobs);
+    doQueryInternal(null, remoteUrl, CredentialsUtils.getCredentials(credentialId), recursiveSearch, validateCertificates, remoteJobs);
 
     new ForwardToView(this, "index")
             .with("step1", "true")
@@ -184,7 +186,9 @@ public final class JobImportAction implements RootAction, Describable<JobImportA
   }
 
 
-  private void doImportInternal(String jobUrl, String localPath,
+  private void doImportInternal(String jobUrl,
+                                boolean validateCertificates,
+                                String localPath,
                                 String credentialId,
                                 boolean installPlugins,
                                 boolean update,
@@ -208,7 +212,7 @@ public final class JobImportAction implements RootAction, Describable<JobImportA
         NullSafeCredentials credentials = CredentialsUtils.getCredentials(credentialId);
 
         try {
-          inputStream = URLUtils.fetchUrl(remoteJob.getUrl() + "/config.xml", credentials.username, credentials.password);
+          inputStream = URLUtils.fetchUrl(remoteJob.getUrl() + "/config.xml", credentials.username, credentials.password, validateCertificates);
 
           final Item newItem;
           if (StringUtils.isNotEmpty(localPath) && !StringUtils.equals("/", localPath.trim())) {
@@ -238,7 +242,7 @@ public final class JobImportAction implements RootAction, Describable<JobImportA
               Jenkins instance = Jenkins.get();
               instance.getAuthorizationStrategy().getACL(instance).checkPermission(Jenkins.ADMINISTER);
               PluginManager.createDefault(Jenkins.get()).prevalidateConfig(
-                      URLUtils.fetchUrl(remoteJob.getUrl() + "/config.xml", credentials.username, credentials.password));
+                      URLUtils.fetchUrl(remoteJob.getUrl() + "/config.xml", credentials.username, credentials.password, true));
             }
 
             newItem.save();
@@ -248,7 +252,7 @@ public final class JobImportAction implements RootAction, Describable<JobImportA
 
           if (remoteJob.isFolder() && ((RemoteFolder)remoteJob).hasChildren()) {
             for (RemoteItem childJob : ((RemoteFolder)remoteJob).getChildren()) {
-              doImportInternal(childJob.getUrl(), newItem.getFullName(), credentialId, installPlugins, update, remoteJobs, remoteJobsImportStatus);
+              doImportInternal(childJob.getUrl(), validateCertificates, newItem.getFullName(), credentialId, installPlugins, update, remoteJobs, remoteJobsImportStatus);
             }
           }
         } catch (final Exception e) {
@@ -274,8 +278,8 @@ public final class JobImportAction implements RootAction, Describable<JobImportA
     }
   }
 
-  private void doQueryInternal(RemoteFolder parent, String url, NullSafeCredentials credentials, String recursiveSearch, SortedSet<RemoteItem> remoteJobs) {
-    remoteJobs.addAll(RestApiClient.getRemoteItems(parent, url, credentials, isRecursive(recursiveSearch)));
+  private void doQueryInternal(RemoteFolder parent, String url, NullSafeCredentials credentials, String recursiveSearch, boolean validateCertificates, SortedSet<RemoteItem> remoteJobs) {
+    remoteJobs.addAll(RestApiClient.getRemoteItems(parent, url, credentials, validateCertificates, isRecursive(recursiveSearch)));
   }
 
   private boolean isRecursive(String param) {

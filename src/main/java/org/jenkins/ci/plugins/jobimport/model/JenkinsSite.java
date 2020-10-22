@@ -20,11 +20,13 @@ public class JenkinsSite extends AbstractDescribableImpl<JenkinsSite> {
     private final String name;
     private final String url;
     private String defaultCredentialsId;
+    private final boolean validateCertificates;
 
     @DataBoundConstructor
-    public JenkinsSite(String name, String url) {
+    public JenkinsSite(String name, String url, boolean validateCertificates) {
         this.name = name;
         this.url = url;
+        this.validateCertificates = validateCertificates;
     }
 
     @DataBoundSetter
@@ -42,6 +44,10 @@ public class JenkinsSite extends AbstractDescribableImpl<JenkinsSite> {
 
     public String getName() {
         return name;
+    }
+
+    public boolean getValidateCertificates() {
+        return validateCertificates;
     }
 
     @Extension

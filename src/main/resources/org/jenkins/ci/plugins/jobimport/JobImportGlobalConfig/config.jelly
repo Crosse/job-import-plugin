@@ -11,6 +11,9 @@
                     <f:entry field="url" title="${%Url}" description="${%Jenkins Server Url}">
                         <f:textbox default=""/>
                     </f:entry>
+                    <f:entry field="validateCertificates" title="${%TLS Verification}">
+                        <f:checkbox checked="true" />
+                    </f:entry>
                     <f:entry title="${%Credentials}" field="defaultCredentialsId">
                         <c:select xmlns:c="/lib/credentials" />
                     </f:entry>
